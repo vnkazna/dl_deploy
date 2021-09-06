@@ -85,51 +85,42 @@ Builder.load_string("""
             id: btn_1
             text: 'Windows 7'
             size_hint: [.5, .1]
-            on_release: self.background_color = (0.0, 1.0, 0.0, 1.0)    
-            on_press: root.start_second_thread(self)
-
+            on_release: root.start_second_thread(self)
         Button:
-            id: but_2
+            id: btn_2
             text: 'Windows 8'
             size_hint: [.5, .1]
-            on_release: self.background_color = (0.0, 1.0, 0.0, 1.0)    
-            on_press: root.start_second_thread(instance)
+            on_release: root.start_second_thread(self)    
         Button:
-            text: 'Windows 2008 R2'
+            text: 'Windows Server 2008 R2'
             size_hint: [.5, .1]
-            on_release: self.background_color = (0.0, 1.0, 0.0, 1.0)    
-            on_press:root.start_second_thread(self)
+            on_release: root.start_second_thread(self)   
         Button:
-            text: 'Windows 2012'
+            text: 'Windows Server 2012'
             size_hint: [.5, .1]
-            on_release: self.background_color = (0.0, 1.0, 0.0, 1.0)    
-            on_press:root.start_second_thread(self)
+            on_release: root.start_second_thread(self)    
         Button:
-            text: 'Windows 2016'
+            text: 'Windows Server 2016'
             size_hint: [.5, .1]
-            on_release: self.background_color = (0.0, 1.0, 0.0, 1.0)    
-            on_press:root.start_second_thread(self)
+            on_release: root.start_second_thread(self)  
         Button:
-            text: 'Windows 2019'
+            text: 'Windows Server 2019'
             size_hint: [.5, .1]
-            on_release: self.background_color = (0.0, 1.0, 0.0, 1.0)    
-            on_press:root.start_second_thread(self)
+            on_release: root.start_second_thread(self)   
         Button:
             text: 'Windows 10'
             size_hint: [.5, .1]
-            on_release: self.background_color = (0.0, 1.0, 0.0, 1.0)    
-            on_press:root.start_second_thread(self)
+            on_release: root.start_second_thread(self) 
         Button:
             text: 'Windows 11'
             size_hint: [.5, .1]
-            on_release: self.background_color = (0.0, 1.0, 0.0, 1.0)    
-            on_press:root.start_second_thread(self)
+            on_release: root.start_second_thread(self) 
     StackLayout:
         orientation: 'rl-bt'    
         Button:
             text: 'Запустить установку Dallas Lock'
             size_hint: [.3, .1]
-            on_release: root.manager.current = 'start'
+            on_release: root.manager.current = root.del_vms(self)
         Button:
             size_hint: [.3, .1]
             text: 'В главное меню'
@@ -177,72 +168,104 @@ class SetOsScreen(Screen, App):
             connect = SmartConnectNoSSL(host='192.168.13.138', user='kvn', pwd='5745Ayc')
         except Exception as e:
             print("Сервер ESXi недоступен")
+
         content = connect.content
 
-        def binder(self):
-            pass
+        vm_properties = ["name", "config.template"]
+        view = pchelper.get_container_view(connect, obj_type=[vim.VirtualMachine])
+        vm_data = pchelper.collect_properties(connect,
+                                              view_ref=view,
+                                              obj_type=vim.VirtualMachine,
+                                              path_set=vm_properties,
+                                              include_mors=True)
 
-        """osv = [vm for vm in templates.view if vm.config.template == True and name in vm.name]
-        print(osv)
+        for vm in vm_data:
+            if name in vm['name'] and vm["config.template"] == True:
+                template_name = vm['name']
+                m_name='AutoDeploy_' + template_name
+                vm_folder = 'Deployed_fromTemplate'
+                datacenter_name = 'Datacenter'
+                datastore_name = 'vsan_DatastoreSSD'
+                cluster_name = 'CZI_Cluster 2_6.7'
+                resource_pool = 'Kaznacheev'
 
-        template_name = 'Windows 11 Insider Preview'
-        vm_folder = 'Deployed_fromTemplate'
-        datacenter_name = 'Datacenter'
-        datastore_name = 'vsan_DatastoreSSD'
-        cluster_name = 'CZI_Cluster 2_6.7'
-        resource_pool = 'Kaznacheev'
+                template = pchelper.get_obj(content, [vim.VirtualMachine], template_name)
+                print('TEMPLATE : ', template)
 
-        template = pchelper.get_obj(content, [vim.VirtualMachine], template_name)
-        print('TEMPLATE : ', template)
+                datacenter = pchelper.get_obj(content, [vim.Datacenter], datacenter_name)
+                print('DATACENTER', datacenter)
 
-        datacenter = pchelper.get_obj(content, [vim.Datacenter], datacenter_name)
-        print('DATACENTER', datacenter)
+                destfolder = pchelper.search_for_obj(content, [vim.Folder], vm_folder)
+                print('DESTINATION : ', destfolder)
 
-        destfolder = pchelper.search_for_obj(content, [vim.Folder], vm_folder)
-        print('DESTINATION : ', destfolder)
+                datastore = pchelper.search_for_obj(content, [vim.Datastore], datastore_name)
+                print('DATASTORE : ', datastore)
 
-        datastore = pchelper.search_for_obj(content, [vim.Datastore], datastore_name)
-        print('DATASTORE : ', datastore)
+                cluster = pchelper.search_for_obj(content, [vim.ClusterComputeResource], cluster_name)
+                print('CLUSTER : ', cluster)
 
-        cluster = pchelper.search_for_obj(content, [vim.ClusterComputeResource], cluster_name)
-        print('CLUSTER : ', cluster)
+                resource_pool = pchelper.search_for_obj(content, [vim.ResourcePool], resource_pool)
+                print('RESOURCE_POOL :', resource_pool)
 
-        resource_pool = pchelper.search_for_obj(content, [vim.ResourcePool], resource_pool)
-        print('RESOURCE_POOL :', resource_pool)
+                vmconf = vim.vm.ConfigSpec()
 
-        vmconf = vim.vm.ConfigSpec()
+                try:
+                    rec = content.storageResourceManager.RecommendDatastores(storageSpec=storagespec)
+                    rec_action = rec.recommendations[0].action[0]
+                    real_datastore_name = rec_action.destination.name
+                except Exception:
+                    real_datastore_name = template.datastore[0].info.name
 
-        try:
-            rec = content.storageResourceManager.RecommendDatastores(storageSpec=storagespec)
-            rec_action = rec.recommendations[0].action[0]
-            real_datastore_name = rec_action.destination.name
-        except Exception:
-            real_datastore_name = template.datastore[0].info.name
+                datastore = pchelper.get_obj(content, [vim.Datastore], real_datastore_name)
 
-        datastore = pchelper.get_obj(content, [vim.Datastore], real_datastore_name)
+                # set relospec
+                relospec = vim.vm.RelocateSpec()
+                relospec.datastore = datastore
+                relospec.pool = resource_pool
 
-        # set relospec
-        relospec = vim.vm.RelocateSpec()
-        relospec.datastore = datastore
-        relospec.pool = resource_pool
+                clonespec = vim.vm.CloneSpec()
+                clonespec.location = relospec
+                clonespec.powerOn = True
 
-        clonespec = vim.vm.CloneSpec()
-        clonespec.location = relospec
-        clonespec.powerOn = True
+                print("cloning VM...")
 
-        print("cloning VM...")
+                task = template.Clone(folder=destfolder, name=m_name, spec=clonespec)
+                info_tasks1 = tasks.wait_for_tasks(connect, [task])
 
-        task = template.Clone(folder=destfolder, name=name, spec=clonespec)
-        info_tasks1 = tasks.wait_for_tasks(connect, [task])
+                print("VM cloned.")
 
-        print("VM cloned.")"""
 
     def start_second_thread(self, instance):
+
+        if 'self.targets' not in locals():
+            self.targets = []
+        print(self.targets)
+        if instance.background_color == [1, 1, 1, 1]:
+            instance.background_color = (0.0, 1.0, 0.0, 1.0)
+            self.targets.append(instance.text)
+            print(self.targets)
+        else:
+            instance.background_color = (1, 1, 1, 1)
+            #self.targets.remove(instance.text)
+            print(self.targets)
+        #print(instance.disabled)
+
         name = instance.text
         my_thread = threading.Thread(target=self.clone_vm, args=(name,))
         my_thread.start()
-    def second_thread(self, name):
-        pass
+    def del_vms(self, name):
+
+        try:
+            connect = SmartConnectNoSSL(host='192.168.13.138', user='kvn', pwd='5745Ayc')
+        except Exception as e:
+            print("Сервер ESXi недоступен")
+        parent = connect.content.rootFolder
+        def search_folder(parent, connect):
+            for folder in connect.content.viewManager.CreateContainerView(parent, [vim.Folder], True).view:
+                if 'Kaznacheev' in folder.name:
+                    search_folder(folder, connect)
+                    print(folder)
+        search_folder(connect.content.rootFolder, connect)
 
 
 class SetWaitScreen(Screen):
